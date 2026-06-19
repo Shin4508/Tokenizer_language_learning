@@ -1,0 +1,710 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI語学チャット＆構造解析（公開用）</title>
+    <style>
+        :root {
+            --bg-color: #f1f5f9;
+            --chat-bg: #ffffff;
+            --text-color: #1e293b;
+            --border-color: #e2e8f0;
+            --primary: #3b82f6;
+            --user-msg: #dbeafe;
+            --ai-msg: #f8fafc;
+            --grammar-highlight: #f59e0b;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            height: 100vh;
+        }
+
+        .app-container {
+            width: 100%;
+            max-width: 800px;
+            background-color: var(--chat-bg);
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+            box-shadow: 0 0 20px rgba(0,0,0,0.05);
+            position: relative;
+        }
+
+        /* ヘッダー設定 */
+        .header {
+            padding: 16px 20px;
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            gap: 12px;
+            align-items: center;
+            background: #fff;
+            z-index: 10;
+            flex-wrap: wrap;
+        }
+        .header select {
+            padding: 6px 10px;
+            border-radius: 6px;
+            border: 1px solid var(--border-color);
+            font-size: 0.9rem;
+        }
+        
+        .btn-settings {
+            margin-left: auto;
+            background-color: #f8fafc;
+            border: 1px solid var(--border-color);
+            padding: 6px 12px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            color: #475569;
+            transition: all 0.2s;
+        }
+        .btn-settings:hover {
+            background-color: #e2e8f0;
+        }
+        .btn-settings.warning {
+            background-color: #fef2f2;
+            color: #ef4444;
+            border-color: #fca5a5;
+            font-weight: bold;
+        }
+
+        /* チャットエリア */
+        .chat-area {
+            flex: 1;
+            overflow-y: auto;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .message-wrapper {
+            display: flex;
+            flex-direction: column;
+            max-width: 85%;
+        }
+
+        .message-wrapper.user {
+            align-self: flex-end;
+            align-items: flex-end;
+        }
+
+        .message-wrapper.ai {
+            align-self: flex-start;
+            align-items: flex-start;
+        }
+
+        .message-content {
+            padding: 12px 16px;
+            border-radius: 12px;
+            font-size: 1.05rem;
+            line-height: 1.5;
+            position: relative;
+        }
+
+        .user .message-content {
+            background-color: var(--user-msg);
+            color: #1e3a8a;
+            border-bottom-right-radius: 4px;
+        }
+
+        .ai .message-content {
+            background-color: var(--ai-msg);
+            border: 1px solid var(--border-color);
+            border-bottom-left-radius: 4px;
+        }
+
+        /* 解析ボタン */
+        .analyze-btn {
+            background: none;
+            border: none;
+            color: #64748b;
+            font-size: 0.85rem;
+            cursor: pointer;
+            margin-top: 6px;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            padding: 4px 8px;
+            border-radius: 4px;
+            transition: background 0.2s;
+        }
+        .analyze-btn:hover {
+            background: #f1f5f9;
+            color: var(--primary);
+        }
+
+        /* 解析結果エリア */
+        .analysis-box {
+            margin-top: 10px;
+            padding: 16px;
+            background-color: #fff;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            width: 100%;
+            box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);
+            display: none;
+        }
+
+        .analysis-box h4 {
+            margin: 0 0 8px 0;
+            font-size: 0.85rem;
+            color: #64748b;
+        }
+
+        .token-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px 4px;
+            line-height: 2.2;
+            margin-bottom: 12px;
+        }
+
+        .token {
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 1rem;
+            display: inline-block;
+            color: #1e293b;
+            cursor: pointer;
+            position: relative;
+            transition: all 0.1s;
+        }
+        .token:hover {
+            transform: translateY(-2px);
+            z-index: 10;
+        }
+        .token.unmatched {
+            background-color: transparent;
+            color: #64748b;
+            border: 1px dashed #cbd5e1;
+        }
+        .token.grammar-word {
+            font-weight: bold;
+            color: #b45309;
+            border-bottom: 3px solid var(--grammar-highlight);
+            border-radius: 4px 4px 0 0;
+            background-image: linear-gradient(to top, rgba(245, 158, 11, 0.1) 0%, transparent 100%);
+        }
+
+        .chat-area.is-hovering .token {
+            opacity: 0.4;
+            filter: grayscale(80%);
+        }
+        .chat-area.is-hovering .token.highlight-active {
+            opacity: 1;
+            filter: grayscale(0%);
+            transform: scale(1.05);
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .token .tooltip {
+            visibility: hidden;
+            background-color: #1e293b;
+            color: #fff;
+            text-align: center;
+            border-radius: 6px;
+            padding: 6px 10px;
+            position: absolute;
+            z-index: 20;
+            bottom: 120%;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 0.8rem;
+            white-space: nowrap;
+            opacity: 0;
+            transition: opacity 0.2s;
+            pointer-events: none;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.2);
+        }
+        .token:hover .tooltip {
+            visibility: visible;
+            opacity: 1;
+        }
+
+        /* 入力エリア */
+        .input-area {
+            padding: 16px 20px;
+            border-top: 1px solid var(--border-color);
+            background: #fff;
+            display: flex;
+            gap: 12px;
+        }
+        .input-area input {
+            flex: 1;
+            padding: 12px 16px;
+            border: 1px solid var(--border-color);
+            border-radius: 24px;
+            font-size: 1rem;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+        .input-area input:focus {
+            border-color: var(--primary);
+        }
+        .input-area button {
+            background-color: var(--primary);
+            color: white;
+            border: none;
+            border-radius: 24px;
+            padding: 0 20px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+        .input-area button:hover {
+            background-color: #2563eb;
+        }
+        .input-area button:disabled {
+            background-color: #94a3b8;
+            cursor: not-allowed;
+        }
+
+        .typing-indicator {
+            display: none;
+            font-size: 0.9rem;
+            color: #64748b;
+            padding: 0 20px 10px;
+        }
+
+        /* APIキー設定モーダル */
+        .modal-overlay {
+            display: none;
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.5);
+            z-index: 100;
+            justify-content: center;
+            align-items: center;
+        }
+        .modal-content {
+            background: #fff;
+            padding: 24px;
+            border-radius: 12px;
+            width: 90%;
+            max-width: 400px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+        }
+        .modal-content h3 {
+            margin-top: 0;
+            color: #1e293b;
+        }
+        .modal-content p {
+            font-size: 0.9rem;
+            color: #475569;
+            margin-bottom: 16px;
+        }
+        .modal-content input[type="password"] {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            margin-bottom: 16px;
+            box-sizing: border-box;
+            font-family: monospace;
+        }
+        .modal-actions {
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+        }
+        .modal-actions button {
+            padding: 8px 16px;
+            border-radius: 6px;
+            border: none;
+            cursor: pointer;
+            font-weight: bold;
+        }
+        .btn-cancel {
+            background-color: #e2e8f0;
+            color: #475569;
+        }
+        .btn-save {
+            background-color: var(--primary);
+            color: white;
+        }
+    </style>
+</head>
+<body>
+
+<div class="app-container">
+    <div class="header">
+        <label style="font-size:0.9rem; font-weight:bold;">学習言語:</label>
+        <select id="learn-lang">
+            <option value="English">英語</option>
+            <option value="Korean">韓国語</option>
+            <option value="Spanish">スペイン語</option>
+            <option value="French">フランス語</option>
+            <option value="Chinese">中国語</option>
+        </select>
+        <label style="font-size:0.9rem; font-weight:bold; margin-left:12px;">母国語:</label>
+        <select id="native-lang">
+            <option value="Japanese">日本語</option>
+            <option value="English">英語</option>
+        </select>
+        <button id="settings-btn" class="btn-settings" onclick="openApiKeyModal()">🔑 APIキー未設定</button>
+    </div>
+
+    <div class="chat-area" id="chat-area">
+        <!-- メッセージがここに追加される -->
+    </div>
+    
+    <div class="typing-indicator" id="typing-indicator">AIが入力中...</div>
+
+    <div class="input-area">
+        <input type="text" id="chat-input" placeholder="メッセージを入力..." onkeypress="handleKeyPress(event)">
+        <button id="send-btn" onclick="sendMessage()">送信</button>
+    </div>
+
+    <!-- APIキー設定モーダル -->
+    <div class="modal-overlay" id="api-modal">
+        <div class="modal-content">
+            <h3>🔑 Gemini APIキーの設定</h3>
+            <p>このアプリを使用するには、ご自身のGoogle Gemini APIキーが必要です。<br>キーはブラウザの保存領域にのみ保存され、外部サーバーには送信されません。</p>
+            <p style="font-size:0.8rem;"><a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener noreferrer">👉 APIキーの取得はこちら (無料)</a></p>
+            <input type="password" id="api-key-input" placeholder="AIzaSy...">
+            <div class="modal-actions">
+                <button class="btn-cancel" onclick="closeApiKeyModal()">キャンセル</button>
+                <button class="btn-save" onclick="saveApiKey()">保存</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // ブラウザのLocalStorageからAPIキーを取得
+    let userApiKey = localStorage.getItem('gemini_api_key_langapp') || "";
+
+    const colorPalette = [
+        '#fecaca', '#fef08a', '#bbf7d0', '#bfdbfe', '#e9d5ff', 
+        '#fed7aa', '#99f6e4', '#fbcfe8', '#d9f99d', '#bae6fd'
+    ];
+
+    let chatHistory = [];
+    let messageIdCounter = 0;
+
+    window.onload = () => {
+        updateSettingsBtnUI();
+        if (!userApiKey) {
+            openApiKeyModal();
+        } else {
+            appendMessage("ai", "Hello! Let's practice English. What did you do today?", true);
+        }
+    };
+
+    // --- APIキー管理 ---
+    function openApiKeyModal() {
+        document.getElementById('api-key-input').value = userApiKey;
+        document.getElementById('api-modal').style.display = 'flex';
+    }
+
+    function closeApiKeyModal() {
+        document.getElementById('api-modal').style.display = 'none';
+    }
+
+    function saveApiKey() {
+        const key = document.getElementById('api-key-input').value.trim();
+        if (key) {
+            localStorage.setItem('gemini_api_key_langapp', key);
+            userApiKey = key;
+            updateSettingsBtnUI();
+            closeApiKeyModal();
+            if (chatHistory.length === 0) {
+                appendMessage("ai", "Hello! Let's practice English. What did you do today?", true);
+            }
+        } else {
+            alert("APIキーを入力してください。");
+        }
+    }
+
+    function updateSettingsBtnUI() {
+        const btn = document.getElementById('settings-btn');
+        if (userApiKey) {
+            btn.textContent = '⚙️ 設定済';
+            btn.classList.remove('warning');
+        } else {
+            btn.textContent = '⚠️ APIキー未設定';
+            btn.classList.add('warning');
+        }
+    }
+    // -------------------
+
+    function handleKeyPress(e) {
+        if (e.key === 'Enter') {
+            sendMessage();
+        }
+    }
+
+    function appendMessage(role, text, isInit = false) {
+        const chatArea = document.getElementById('chat-area');
+        const msgId = `msg-${messageIdCounter++}`;
+        
+        const wrapper = document.createElement('div');
+        wrapper.className = `message-wrapper ${role}`;
+        wrapper.id = msgId;
+
+        const content = document.createElement('div');
+        content.className = 'message-content';
+        content.textContent = text;
+        wrapper.appendChild(content);
+
+        const analyzeBtn = document.createElement('button');
+        analyzeBtn.className = 'analyze-btn';
+        analyzeBtn.innerHTML = '🔍 翻訳と構造を解析';
+        analyzeBtn.onclick = () => analyzeText(msgId, text);
+        wrapper.appendChild(analyzeBtn);
+
+        const analysisBox = document.createElement('div');
+        analysisBox.className = 'analysis-box';
+        analysisBox.id = `analysis-${msgId}`;
+        
+        const lang1Title = document.createElement('h4');
+        lang1Title.textContent = '原文の構造';
+        const lang1Container = document.createElement('div');
+        lang1Container.className = 'token-container';
+        lang1Container.id = `lang1-${msgId}`;
+        
+        const lang2Title = document.createElement('h4');
+        lang2Title.textContent = '翻訳と構造';
+        const lang2Container = document.createElement('div');
+        lang2Container.className = 'token-container';
+        lang2Container.id = `lang2-${msgId}`;
+
+        analysisBox.appendChild(lang1Title);
+        analysisBox.appendChild(lang1Container);
+        analysisBox.appendChild(lang2Title);
+        analysisBox.appendChild(lang2Container);
+        
+        wrapper.appendChild(analysisBox);
+        chatArea.appendChild(wrapper);
+
+        chatArea.scrollTop = chatArea.scrollHeight;
+
+        if (!isInit) {
+            chatHistory.push({
+                role: role === 'user' ? 'user' : 'model',
+                parts: [{ text: text }]
+            });
+        } else {
+             chatHistory.push({ role: 'model', parts: [{ text: text }] });
+        }
+    }
+
+    async function sendMessage() {
+        if (!userApiKey) {
+            openApiKeyModal();
+            return;
+        }
+
+        const inputEl = document.getElementById('chat-input');
+        const text = inputEl.value.trim();
+        if (!text) return;
+
+        const sendBtn = document.getElementById('send-btn');
+        const indicator = document.getElementById('typing-indicator');
+        const learnLang = document.getElementById('learn-lang').value;
+
+        inputEl.value = '';
+        inputEl.disabled = true;
+        sendBtn.disabled = true;
+        appendMessage('user', text);
+        indicator.style.display = 'block';
+        document.getElementById('chat-area').scrollTop = document.getElementById('chat-area').scrollHeight;
+
+        try {
+            const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${userApiKey}`;
+            
+            const requestBody = {
+                contents: chatHistory,
+                systemInstruction: {
+                    parts: [{ text: `あなたは優秀な語学教師です。ユーザーとは指定された学習言語（${learnLang}）でのみ会話してください。母国語の翻訳は絶対に含めず、自然な会話を続けてください。ユーザーの文法ミスがあれば、会話の中で自然に正しい表現を提示してください。` }]
+                }
+            };
+
+            const response = await fetchWithRetry(url, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(requestBody)
+            });
+
+            const aiText = response.candidates[0].content.parts[0].text;
+            appendMessage('ai', aiText);
+
+        } catch (error) {
+            console.error("Chat Error:", error);
+            appendMessage('ai', "通信エラー、またはAPIキーが正しくありません。設定をご確認ください。");
+        } finally {
+            inputEl.disabled = false;
+            sendBtn.disabled = false;
+            indicator.style.display = 'none';
+            inputEl.focus();
+        }
+    }
+
+    async function analyzeText(msgId, text) {
+        if (!userApiKey) {
+            openApiKeyModal();
+            return;
+        }
+
+        const btn = document.querySelector(`#${msgId} .analyze-btn`);
+        const analysisBox = document.getElementById(`analysis-${msgId}`);
+        const learnLang = document.getElementById('learn-lang').value;
+        const nativeLang = document.getElementById('native-lang').value;
+
+        if (analysisBox.style.display === 'block') {
+            analysisBox.style.display = 'none';
+            btn.innerHTML = '🔍 翻訳と構造を解析';
+            return;
+        }
+
+        btn.innerHTML = '⏳ 解析中...';
+        btn.disabled = true;
+
+        const prompt = `
+            Text: "${text}"
+            上記の${learnLang}のテキストを${nativeLang}に自然に翻訳し、両方の言語のテキストを意味的に対応するチャンク（塊）に分割してください。
+            対応するチャンク同士には同じ正の整数（groupId）を割り当て、対応がない場合はnullにしてください。
+            接続詞、前置詞、助詞、関係代名詞などの「文法語」は isGrammarWord を true にしてください。
+        `;
+
+        const requestBody = {
+            contents: [{ parts: [{ text: prompt }] }],
+            systemInstruction: {
+                parts: [{ text: "あなたはプロの言語学者です。テキストをアライメントし、JSONスキーマに従って出力してください。" }]
+            },
+            generationConfig: {
+                responseMimeType: "application/json",
+                responseSchema: {
+                    type: "OBJECT",
+                    properties: {
+                        lang1Tokens: {
+                            type: "ARRAY",
+                            items: {
+                                type: "OBJECT",
+                                properties: {
+                                    text: { type: "STRING" },
+                                    groupId: { type: "INTEGER", nullable: true },
+                                    explanation: { type: "STRING", nullable: true },
+                                    isGrammarWord: { type: "BOOLEAN" }
+                                }
+                            }
+                        },
+                        lang2Tokens: {
+                            type: "ARRAY",
+                            items: {
+                                type: "OBJECT",
+                                properties: {
+                                    text: { type: "STRING" },
+                                    groupId: { type: "INTEGER", nullable: true },
+                                    explanation: { type: "STRING", nullable: true },
+                                    isGrammarWord: { type: "BOOLEAN" }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        };
+
+        try {
+            const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${userApiKey}`;
+            const data = await fetchWithRetry(url, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(requestBody)
+            });
+
+            const parsedResult = JSON.parse(data.candidates[0].content.parts[0].text);
+            renderTokens(parsedResult.lang1Tokens, `lang1-${msgId}`);
+            renderTokens(parsedResult.lang2Tokens, `lang2-${msgId}`);
+
+            analysisBox.style.display = 'block';
+            btn.innerHTML = '✖ 解析を閉じる';
+
+        } catch (error) {
+            console.error("Analysis Error:", error);
+            btn.innerHTML = '⚠️ エラー（APIキーを確認してください）';
+        } finally {
+            btn.disabled = false;
+        }
+    }
+
+    function renderTokens(tokens, containerId) {
+        const container = document.getElementById(containerId);
+        container.innerHTML = '';
+
+        tokens.forEach(token => {
+            if (token.text.trim() === '' && !token.groupId) {
+                container.appendChild(document.createTextNode(token.text));
+                return;
+            }
+
+            const span = document.createElement('span');
+            span.textContent = token.text;
+            span.className = 'token';
+
+            if (token.groupId !== null && token.groupId !== undefined) {
+                const color = colorPalette[token.groupId % colorPalette.length];
+                span.style.backgroundColor = color;
+                span.dataset.groupId = token.groupId;
+                span.addEventListener('mouseenter', () => highlightGroup(token.groupId));
+                span.addEventListener('mouseleave', removeHighlight);
+            } else {
+                span.classList.add('unmatched');
+            }
+
+            if (token.isGrammarWord) {
+                span.classList.add('grammar-word');
+            }
+
+            if (token.explanation) {
+                const tooltip = document.createElement('span');
+                tooltip.className = 'tooltip';
+                tooltip.innerHTML = token.isGrammarWord ? `💡 ${token.explanation}` : token.explanation;
+                span.appendChild(tooltip);
+            }
+
+            container.appendChild(span);
+        });
+    }
+
+    function highlightGroup(groupId) {
+        document.getElementById('chat-area').classList.add('is-hovering');
+        const tokens = document.querySelectorAll(`.token[data-group-id="${groupId}"]`);
+        tokens.forEach(t => t.classList.add('highlight-active'));
+    }
+
+    function removeHighlight() {
+        document.getElementById('chat-area').classList.remove('is-hovering');
+        const tokens = document.querySelectorAll('.token.highlight-active');
+        tokens.forEach(t => t.classList.remove('highlight-active'));
+    }
+
+    async function fetchWithRetry(url, options, maxRetries = 3) {
+        let delay = 1000;
+        for (let i = 0; i < maxRetries; i++) {
+            try {
+                const response = await fetch(url, options);
+                if (!response.ok) throw new Error(`API Error: ${response.status}`);
+                return await response.json();
+            } catch (e) {
+                if (i === maxRetries - 1) throw e;
+                await new Promise(res => setTimeout(res, delay));
+                delay *= 2;
+            }
+        }
+    }
+</script>
+
+</body>
+</html>
