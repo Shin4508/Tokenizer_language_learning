@@ -640,6 +640,10 @@
             btn.disabled = false;
         }
     }
+    // === ここから差し替え ===
+
+    // クリック（タップ）で固定されているグループを記憶する変数
+    let lockedGroup = null; 
 
     function renderTokens(tokens, containerId) {
         const container = document.getElementById(containerId);
@@ -659,10 +663,43 @@
                 const color = colorPalette[token.groupId % colorPalette.length];
                 span.style.backgroundColor = color;
                 span.dataset.groupId = token.groupId;
-                span.addEventListener('mouseenter', () => highlightGroup(token.groupId));
-                span.addEventListener('mouseleave', removeHighlight);
+                
+                // --- ホバー（PC用） ---
+                span.addEventListener('mouseenter', () => {
+                    // 何かタップで固定されている時は、ホバーの動きを無効化する
+                    if (lockedGroup !== null) return;
+                    highlightGroup(token.groupId);
+                });
+
+                span.addEventListener('mouseleave', () => {
+                    // 何かタップで固定されている時は、ホバー解除の動きを無効化する
+                    if (lockedGroup !== null) return;
+                    removeHighlight();
+                });
+
+                // --- クリック（スマホ用 ＆ PCの固定用） ---
+                span.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    toggleLock(token.groupId);
+                });
+
             } else {
                 span.classList.add('unmatched');
+                if (token.explanation) {
+                    // 助詞などの対応がない単語の処理
+                    span.addEventListener('mouseenter', () => {
+                        if (lockedGroup !== null) return;
+                        highlightGroup('none', span);
+                    });
+                    span.addEventListener('mouseleave', () => {
+                        if (lockedGroup !== null) return;
+                        removeHighlight();
+                    });
+                    span.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        toggleLock('none', span);
+                    });
+                }
             }
 
             if (token.isGrammarWord) {
@@ -680,18 +717,59 @@
         });
     }
 
-    function highlightGroup(groupId) {
+    // ハイライトを適用する関数
+    function highlightGroup(groupId, element = null) {
         document.getElementById('chat-area').classList.add('is-hovering');
-        const tokens = document.querySelectorAll(`.token[data-group-id="${groupId}"]`);
-        tokens.forEach(t => t.classList.add('highlight-active'));
+        if (groupId === 'none' && element) {
+            element.classList.add('highlight-active');
+            element.classList.add('show-tooltip');
+        } else {
+            const tokens = document.querySelectorAll(`.token[data-group-id="${groupId}"]`);
+            tokens.forEach(t => {
+                t.classList.add('highlight-active');
+                t.classList.add('show-tooltip');
+            });
+        }
     }
 
+    // ハイライトを全て消す関数
     function removeHighlight() {
         document.getElementById('chat-area').classList.remove('is-hovering');
         const tokens = document.querySelectorAll('.token.highlight-active');
-        tokens.forEach(t => t.classList.remove('highlight-active'));
+        tokens.forEach(t => {
+            t.classList.remove('highlight-active');
+            t.classList.remove('show-tooltip');
+        });
     }
 
+    // クリック（タップ）時のロック切り替え関数
+    function toggleLock(groupId, element = null) {
+        // すでにロックされているものを再度タップしたらロック解除
+        if (lockedGroup === groupId && groupId !== 'none') {
+            lockedGroup = null;
+            removeHighlight();
+            return;
+        }
+        // unmatchedな要素のロック解除
+        if (groupId === 'none' && lockedGroup === 'none' && element.classList.contains('highlight-active')) {
+            lockedGroup = null;
+            removeHighlight();
+            return;
+        }
+
+        // 別の要素をタップした場合は、一度リセットして新しくロックする
+        removeHighlight();
+        lockedGroup = groupId;
+        highlightGroup(groupId, element);
+    }
+
+    // 背景などの余白をタップ（クリック）したらロックを解除する
+    document.addEventListener('click', () => {
+        if (lockedGroup !== null) {
+            lockedGroup = null;
+            removeHighlight();
+        }
+    });
     async function fetchWithRetry(url, options, maxRetries = 3) {
         let delay = 1000;
         for (let i = 0; i < maxRetries; i++) {
