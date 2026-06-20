@@ -338,43 +338,44 @@
 
 <div class="app-container">
     <div class="header">
-        <label style="font-size:0.9rem; font-weight:bold;">学習言語:</label>
+        <label style="font-size:0.9rem; font-weight:bold;">Targetting language:</label>
         <select id="learn-lang">
-            <option value="English">英語</option>
-            <option value="Korean">韓国語</option>
-            <option value="Spanish">スペイン語</option>
-            <option value="French">フランス語</option>
-            <option value="Chinese">中国語</option>
+            <option value="English">English</option>
+            <option value="Korean">Korean</option>
+            <option value="Spanish">Spanish</option>
+            <option value="French">French</option>
+            <option value="Chinese">Chinese</option>
         </select>
-        <label style="font-size:0.9rem; font-weight:bold; margin-left:12px;">母国語:</label>
+        <label style="font-size:0.9rem; font-weight:bold; margin-left:12px;">mother language:</label>
         <select id="native-lang">
-            <option value="Japanese">日本語</option>
-            <option value="English">英語</option>
+            <option value="Japanese">Japanese</option>
+            <option value="English">English</option>
+            <option value="Korean">Korean</option>
         </select>
-        <button id="settings-btn" class="btn-settings" onclick="openApiKeyModal()">🔑 APIキー未設定</button>
+        <button id="settings-btn" class="btn-settings" onclick="openApiKeyModal()">API key setting</button>
     </div>
 
     <div class="chat-area" id="chat-area">
         <!-- メッセージがここに追加される -->
     </div>
     
-    <div class="typing-indicator" id="typing-indicator">AIが入力中...</div>
+    <div class="typing-indicator" id="typing-indicator">AI is typing...</div>
 
     <div class="input-area">
-        <input type="text" id="chat-input" placeholder="メッセージを入力..." onkeypress="handleKeyPress(event)">
-        <button id="send-btn" onclick="sendMessage()">送信</button>
+        <input type="text" id="chat-input" placeholder="type message" onkeypress="handleKeyPress(event)">
+        <button id="send-btn" onclick="sendMessage()">send</button>
     </div>
 
     <!-- APIキー設定モーダル -->
     <div class="modal-overlay" id="api-modal">
         <div class="modal-content">
             <h3>🔑 Gemini APIキーの設定</h3>
-            <p>このアプリを使用するには、ご自身のGoogle Gemini APIキーが必要です。<br>キーはブラウザの保存領域にのみ保存され、外部サーバーには送信されません。</p>
-            <p style="font-size:0.8rem;"><a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener noreferrer">👉 APIキーの取得はこちら (無料)</a></p>
+            <p>For using this application you need to use your own API key, the key will no be exposed to outise and stay in your device</p>
+            <p style="font-size:0.8rem;"><a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener noreferrer">For getting API key (free)</a></p>
             <input type="password" id="api-key-input" placeholder="AIzaSy...">
             <div class="modal-actions">
-                <button class="btn-cancel" onclick="closeApiKeyModal()">キャンセル</button>
-                <button class="btn-save" onclick="saveApiKey()">保存</button>
+                <button class="btn-cancel" onclick="closeApiKeyModal()">Cancel</button>
+                <button class="btn-save" onclick="saveApiKey()">Save</button>
             </div>
         </div>
     </div>
@@ -422,17 +423,17 @@
                 appendMessage("ai", "Hello! Let's practice English. What did you do today?", true);
             }
         } else {
-            alert("APIキーを入力してください。");
+            alert("Insert your API key");
         }
     }
 
     function updateSettingsBtnUI() {
         const btn = document.getElementById('settings-btn');
         if (userApiKey) {
-            btn.textContent = '⚙️ 設定済';
+            btn.textContent = 'Setting Compelete';
             btn.classList.remove('warning');
         } else {
-            btn.textContent = '⚠️ APIキー未設定';
+            btn.textContent = 'API key not set';
             btn.classList.add('warning');
         }
     }
@@ -459,7 +460,7 @@
 
         const analyzeBtn = document.createElement('button');
         analyzeBtn.className = 'analyze-btn';
-        analyzeBtn.innerHTML = '🔍 翻訳と構造を解析';
+        analyzeBtn.innerHTML = 'Translate and analyze';
         analyzeBtn.onclick = () => analyzeText(msgId, text);
         wrapper.appendChild(analyzeBtn);
 
@@ -468,13 +469,13 @@
         analysisBox.id = `analysis-${msgId}`;
         
         const lang1Title = document.createElement('h4');
-        lang1Title.textContent = '原文の構造';
+        lang1Title.textContent = 'architecture of original text';
         const lang1Container = document.createElement('div');
         lang1Container.className = 'token-container';
         lang1Container.id = `lang1-${msgId}`;
         
         const lang2Title = document.createElement('h4');
-        lang2Title.textContent = '翻訳と構造';
+        lang2Title.textContent = 'Translation and Analysis';
         const lang2Container = document.createElement('div');
         lang2Container.className = 'token-container';
         lang2Container.id = `lang2-${msgId}`;
@@ -541,7 +542,7 @@
 
         } catch (error) {
             console.error("Chat Error:", error);
-            appendMessage('ai', "通信エラー、またはAPIキーが正しくありません。設定をご確認ください。");
+            appendMessage('ai', "Error, API key is not correct, please check setting");
         } finally {
             inputEl.disabled = false;
             sendBtn.disabled = false;
@@ -563,11 +564,11 @@
 
         if (analysisBox.style.display === 'block') {
             analysisBox.style.display = 'none';
-            btn.innerHTML = '🔍 翻訳と構造を解析';
+            btn.innerHTML = 'Translation and Analysis';
             return;
         }
 
-        btn.innerHTML = '⏳ 解析中...';
+        btn.innerHTML = 'Analyzing...';
         btn.disabled = true;
 
         const prompt = `
