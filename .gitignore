@@ -1,1 +1,9 @@
+.venv/
+__pycache__/
+*.pyc
+*.ses
 .DS_Store
+.env
+lingua.db
+lingua.db-shm
+lingua.db-wal
